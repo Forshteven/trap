@@ -1,17 +1,79 @@
-numbers = [11, 2, 3, 4, 5, 6, 7, 8, 9, 10, 111, 12, 13, 14, 15, 49, 1]
-primes = []
-not_primes = []
-for i in numbers:
-    if i == 1:
-        continue
-    is_prime = True
-    for k in range(2, i):
-        if i%k == 0:
-            is_prime = False
-            break
-    if is_prime:
-        primes.append(i)
-    else:
-        not_primes.append(i)
-print(primes)
-print(not_primes)
+import threading
+import time
+from queue import Queue
+from random import randint
+
+
+class Table:
+    def __init__(self, number):
+        self.number = number
+        self.guest = None
+
+
+class Guest(threading.Thread):
+    def __init__(self, name):
+        super().__init__()
+        self.name = name
+
+    def run(self):
+        # Ожидание случайного времени от 3 до 10 секунд
+        waiting_time = randint(3, 10)
+        print(f"{self.name} кушает {waiting_time} секунд...")
+        time.sleep(waiting_time)
+
+
+class Cafe:
+    def __init__(self, *tables):
+        self.queue = Queue()
+        self.tables = list(tables)
+
+    def guest_arrival(self, *guests):
+        for guest in guests:
+            if any(table.guest is None for table in self.tables):
+                free_table = next((table for table in self.tables if table.guest is None))
+                free_table.guest = guest
+                print(f"{guest.name} сел(-а) за стол номер {free_table.number}")
+                guest.start()
+            else:
+                self.queue.put(guest)
+                print(f"{guest.name} в очереди")
+
+    def discuss_guests(self):
+        while not self.queue.empty() or any(table.guest is not None for table in self.tables):
+            for table in self.tables:
+                if table.guest is not None and not table.guest.is_alive():
+                    print(f"{table.guest.name} покушал(-а) и ушёл(ушла)")
+                    print(f"Стол номер {table.number} свободен")
+                    table.guest = None
+
+            if not self.queue.empty():
+                for table in self.tables:
+                    if table.guest is None:
+                        new_guest = self.queue.get()
+                        table.guest = new_guest
+                        print(f"{new_guest.name} вышел(-ла) из очереди и сел(-а) за стол номер {table.number}")
+                        new_guest.start()
+                        break
+
+
+if __name__ == "__main__":
+    # Создание столов
+    tables = [Table(number) for number in range(1, 6)]
+
+    # Имена гостей
+    guests_names = [
+        'Maria', 'Oleg', 'Vakhtang', 'Sergey', 'Darya', 'Arman',
+        'Vitoria', 'Nikita', 'Galina', 'Pavel', 'Ilya', 'Alexandra'
+    ]
+
+    # Создание гостей
+    guests = [Guest(name) for name in guests_names]
+
+    # Заполнение кафе столами
+    cafe = Cafe(*tables)
+
+    # Приём гостей
+    cafe.guest_arrival(*guests)
+
+    # Обслуживание гостей
+    cafe.discuss_guests()
